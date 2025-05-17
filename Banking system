@@ -1,0 +1,242 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <ctime>
+#include <iomanip>
+
+using namespace std;
+
+// Class to represent a Transaction
+class Transaction {
+private:
+    string transactionId;
+    string accountId;
+    string type; // "Deposit", "Withdrawal", "Transfer"
+    double amount;
+    time_t timestamp;
+
+public:
+    Transaction(string accId, string tType, double amt) : accountId(accId), type(tType), amount(amt) {
+        timestamp = time(nullptr);
+        transactionId = to_string(timestamp); // Simple unique ID based on timestamp
+    }
+
+    void display() const {
+        char timeStr[26];
+        ctime_r(&timestamp, timeStr);
+        timeStr[24] = '\0'; // Remove newline
+        cout << "Transaction ID: " << transactionId << ", Type: " << type
+             << ", Amount: $" << fixed << setprecision(2) << amount
+             << ", Date: " << timeStr << endl;
+    }
+
+    // Getters
+    string getType() const { return type; }
+    double getAmount() const { return amount; }
+};
+
+// Class to represent an Account
+class Account {
+private:
+    string accountId;
+    string customerId;
+    double balance;
+    vector<Transaction> transactions;
+
+public:
+    Account(string accId, string custId, double initialBalance = 0.0)
+        : accountId(accId), customerId(custId), balance(initialBalance) {}
+
+    bool deposit(double amount) {
+        if (amount <= 0) {
+            cout << "Invalid deposit amount." << endl;
+            return false;
+        }
+        balance += amount;
+        transactions.emplace_back(accountId, "Deposit", amount);
+        return true;
+    }
+
+    bool withdraw(double amount) {
+        if (amount <= 0 || amount > balance) {
+            cout << "Invalid or insufficient funds for withdrawal." << endl;
+            return false;
+        }
+        balance -= amount;
+        transactions.emplace_back(accountId, "Withdrawal", amount);
+        return true;
+    }
+
+    bool transfer(Account& toAccount, double amount) {
+        if (amount <= 0 || amount > balance) {
+            cout << "Invalid or insufficient funds for transfer." << endl;
+            return false;
+        }
+        balance -= amount;
+        toAccount.balance += amount;
+        transactions.emplace_back(accountId, "Transfer", amount);
+        toAccount.transactions.emplace_back(toAccount.accountId, "Deposit", amount);
+        return true;
+    }
+
+    void displayInfo() const {
+        cout << "Account ID: " << accountId << ", Balance: $" << fixed << setprecision(2) << balance << endl;
+        cout << "Recent Transactions:" << endl;
+        for (const auto& transaction : transactions) {
+            transaction.display();
+        }
+    }
+
+    // Getters
+    string getAccountId() const { return accountId; }
+    double getBalance() const { return balance; }
+};
+
+// Class to represent a Customer
+class Customer {
+private:
+    string customerId;
+    string name;
+    string contactInfo;
+    vector<Account> accounts;
+
+public:
+    Customer(string custId, string n, string contact)
+        : customerId(custId), name(n), contactInfo(contact) {}
+
+    void addAccount(string accountId, double initialBalance = 0.0) {
+        accounts.emplace_back(accountId, customerId, initialBalance);
+    }
+
+    Account* findAccount(string accountId) {
+        for (auto& account : accounts) {
+            if (account.getAccountId() == accountId) {
+                return &account;
+            }
+        }
+        return nullptr;
+    }
+
+    void displayInfo() const {
+        cout << "Customer ID: " << customerId << ", Name: " << name
+             << ", Contact: " << contactInfo << endl;
+        cout << "Accounts:" << endl;
+        for (const auto& account : accounts) {
+            account.displayInfo();
+        }
+    }
+
+    // Getters
+    string getCustomerId() const { return customerId; }
+};
+
+// Class to manage Banking Services
+class BankingService {
+private:
+    vector<Customer> customers;
+
+public:
+    Customer* findCustomer(string customerId) {
+        for (auto& customer : customers) {
+            if (customer.getCustomerId() == customerId) {
+                return &customer;
+            }
+        }
+        return nullptr;
+    }
+
+    void createCustomer(string customerId, string name, string contact) {
+        customers.emplace_back(customerId, name, contact);
+        cout << "Customer created successfully." << endl;
+    }
+
+    void createAccount(string customerId, string accountId, double initialBalance = 0.0) {
+        Customer* customer = findCustomer(customerId);
+        if (customer) {
+            customer->addAccount(accountId, initialBalance);
+            cout << "Account created successfully." << endl;
+        } else {
+            cout << "Customer not found." << endl;
+        }
+    }
+
+    void deposit(string accountId, string customerId, double amount) {
+        Customer* customer = findCustomer(customerId);
+        if (customer) {
+            Account* account = customer->findAccount(accountId);
+            if (account && account->deposit(amount)) {
+                cout << "Deposit successful." << endl;
+            } else {
+                cout << "Deposit failed." << endl;
+            }
+        } else {
+            cout << "Customer not found." << endl;
+        }
+    }
+
+    void withdraw(string accountId, string customerId, double amount) {
+        Customer* customer = findCustomer(customerId);
+        if (customer) {
+            Account* account = customer->findAccount(accountId);
+            if (account && account->withdraw(amount)) {
+                cout << "Withdrawal successful." << endl;
+            } else {
+                cout << "Withdrawal failed." << endl;
+            }
+        } else {
+            cout << "Customer not found." << endl;
+        }
+    }
+
+    void transfer(string fromAccountId, string toAccountId, string fromCustomerId, string toCustomerId, double amount) {
+        Customer* fromCustomer = findCustomer(fromCustomerId);
+        Customer* toCustomer = findCustomer(toCustomerId);
+        if (fromCustomer && toCustomer) {
+            Account* fromAccount = fromCustomer->findAccount(fromAccountId);
+            Account* toAccount = toCustomer->findAccount(toAccountId);
+            if (fromAccount && toAccount && fromAccount->transfer(*toAccount, amount)) {
+                cout << "Transfer successful." << endl;
+            } else {
+                cout << "Transfer failed." << endl;
+            }
+        } else {
+            cout << "One or both customers not found." << endl;
+        }
+    }
+
+    void displayCustomerInfo(string customerId) {
+        Customer* customer = findCustomer(customerId);
+        if (customer) {
+            customer->displayInfo();
+        } else {
+            cout << "Customer not found." << endl;
+        }
+    }
+};
+
+// Main function to test the banking system
+int main() {
+    BankingService bank;
+
+    // Create customers
+    bank.createCustomer("C001", "John Doe", "john@example.com");
+    bank.createCustomer("C002", "Jane Smith", "jane@example.com");
+
+    // Create accounts
+    bank.createAccount("C001", "A001", 1000.0);
+    bank.createAccount("C002", "A002", 500.0);
+
+    // Perform transactions
+    bank.deposit("A001", "C001", 500.0);
+    bank.withdraw("A001", "C001", 200.0);
+    bank.transfer("A001", "A002", "C001", "C002", 300.0);
+
+    // Display customer information
+    cout << "\nCustomer C001 Info:" << endl;
+    bank.displayCustomerInfo("C001");
+
+    cout << "\nCustomer C002 Info:" << endl;
+    bank.displayCustomerInfo("C002");
+
+    return 0;
+}
